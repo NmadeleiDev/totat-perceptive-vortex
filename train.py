@@ -18,7 +18,7 @@ import joblib
 
 rand_state = 0
 
-def train_pipeline(raw: mne.io.Raw, num_components: int, tmin:float, tmax:float, model_type='lda', use_custom_csp=True):
+def train_pipeline(raw: mne.io.Raw, num_components: int = 4, tmin:float=1., tmax:float=2., model_type='lda', use_custom_csp=True, print_metrics=True):
     event_id = dict(hands=2, feet=3)
 
     events, _ = mne.events_from_annotations(raw, event_id=dict(T1=2, T2=3))
@@ -52,12 +52,18 @@ def train_pipeline(raw: mne.io.Raw, num_components: int, tmin:float, tmax:float,
     class_balance = np.mean(labels == labels[0])
     class_balance = max(class_balance, 1. - class_balance)
 
-    print(f'\n--- Training results --- / class_balance={class_balance}\n')
+    score_results = {}
+
     for scorer in scorers:
         scorer_key = f'test_{scorer}'
-        print(f'{scorer}:\t{np.mean(scores[scorer_key])}')
+        score_results[scorer_key] = np.mean(scores[scorer_key])
 
-    return clf.fit(epochs_data_train, labels)
+    if print_metrics:
+        print(f'\n--- Training results --- / class_balance={class_balance}\n')
+        for k, v in score_results:
+            print(f'{k} = {v}')
+
+    return clf.fit(epochs_data_train, labels), score_results
 
 def main():
     parser = argparse.ArgumentParser(description='Arguments description')
@@ -91,7 +97,7 @@ def main():
 
     fitler_raw(raw, low_pass, high_pass)
 
-    trained_clf = train_pipeline(raw, num_components, t_min, t_max, model_type, use_custom_csp=use_my_csp)
+    trained_clf, _ = train_pipeline(raw, num_components, t_min, t_max, model_type, use_custom_csp=use_my_csp)
 
     joblib.dump(trained_clf, path.join(save_path, 'eeg_classifier.joblib'))
     
